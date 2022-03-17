@@ -7,6 +7,8 @@ const sizeWidth = innerWidth - 100;
 canvas.width  = innerWidth;
 canvas.height = innerHeight;
 
+const INIT_LINE_X = 100;
+
 // const line1 = 50;
 // const diferenceBetweenLines = 50;
 // const checkpointSize = 20;
@@ -35,35 +37,19 @@ canvas.height = innerHeight;
 // var y = canvas.height-30;
 // var dx = 2;
 
-function clean() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
 
-function createLines(){
-  ctx.fillText("P1", 50, 100);
-  ctx.beginPath();
-  ctx.moveTo(100, 100);
-  ctx.lineTo(sizeWidth, 100);
-  ctx.stroke();
 
-  ctx.beginPath();
-  ctx.moveTo(100, 150);
-  ctx.lineTo(sizeWidth, 150);
-  ctx.stroke();
 
-  ctx.beginPath();
-  ctx.moveTo(100, 200);
-  ctx.lineTo(sizeWidth, 200);
-  ctx.stroke();
-}
 
-function createCheckpoint(x, y) {
-  ctx.beginPath();
-  ctx.rect(x, y, 20, 20);
-  ctx.fillStyle = "#FF0000";
-  ctx.fill();
-  ctx.closePath();
-}
+
+
+// function createCheckpoint(x, y) {
+//   ctx.beginPath();
+//   ctx.rect(x, y, 20, 20);
+//   ctx.fillStyle = "#FF0000";
+//   ctx.fill();
+//   ctx.closePath();
+// }
 
 function createActionLine(x) {
   ctx.beginPath();
@@ -74,25 +60,112 @@ function createActionLine(x) {
 }
 
 function initTemplate() {
-  createLines()
+  createLines(4)
 }
 
-function main() {
-  clean()
-  initTemplate();
-  setInterval(draw, 100);
-}
+// function main() {
+//   clean()
+//   initTemplate();
+//   const actionLinesArray = [100, 100, 100, 100];
+//   setInterval({ draw(ac) }, 1000);
+// }
 
-var x = 100
+var x = 100;
 
-function draw() {
-  
-  // createCheckpoint(x, 90)
+
+
+function drawActionLines() {
   if(x <= sizeWidth){
     createActionLine(x);
     x = x + 50;
   }
-  
+}
+
+function draw() {
+  drawActionLines();
+  createCheckpoint(x, 90)
+}
+
+function clean() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+class Cluster {
+  constructor(processNumber = 4, distanceBetweenLines = 50) {
+    this.processNumber = processNumber;
+    this.distanceBetweenLines = distanceBetweenLines;
+    this.checkpoints = [];
+    this.checkpointForces = [];
+    this.colorCheckpoint = "#FF0000"
+    this.yAxisProcess = [];
+    this.checkpointSize = 20;
+    this.checkpointList = [];
+  }
+
+  createLine(processNumber, distanceLine) {
+    ctx.fillText(`P${processNumber}`, 50, 100 + distanceLine);
+    ctx.beginPath();
+    ctx.moveTo(INIT_LINE_X, 100 + distanceLine);
+    ctx.lineTo(sizeWidth, 100 + distanceLine);
+    ctx.stroke();
+  }
+
+  drawLinesOfProcess() {
+    for (let i = 0; i < this.processNumber; i++) {
+      this.createLine(i, i * this.distanceBetweenLines);
+      this.yAxisProcess.push(100 + (i * this.distanceBetweenLines));
+    }
+  }
+
+  createMessage(processSending, processReceive, delay = 50) {
+    ctx.beginPath();
+    ctx.moveTo(100, this.yAxisProcess[processSending]);
+    ctx.lineTo(150, this.yAxisProcess[processReceive]);
+    ctx.stroke();
+
+    if(processSending > processReceive) {
+      ctx.beginPath();
+      ctx.moveTo(150,100);
+      ctx.lineTo(150,100 + 10);
+      ctx.fillStyle = "#000";
+      ctx.lineTo(150 - 10, 100  + 2);
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(150,150);
+      ctx.lineTo(150,150 - 10);
+      ctx.fillStyle = "#000";
+      ctx.lineTo(150 - 10, 150 - 2);
+      ctx.fill();
+    }
+  }
+
+  createCheckpoint(xAxis, yAxis) {
+    const relativeYAxis = yAxis - (this.checkpointSize/2);
+    ctx.beginPath();
+    ctx.rect(xAxis, relativeYAxis, this.checkpointSize, this.checkpointSize);
+    ctx.fillStyle = this.colorCheckpoint;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  createCheckpointByProcess(process, timeline) {
+    const yAxis = this.yAxisProcess[process];
+    this.checkpointList.push({ xAxis: timeline, yAxis: yAxis})
+    this.createCheckpoint(timeline, yAxis);
+  }
+}
+
+function main() {
+  // clean()
+  // initTemplate();
+  // const actionLinesArray = [100, 100, 100, 100];
+  // setInterval({ draw(ac) }, 1000);
+  const cluster = new Cluster(4);
+  cluster.drawLinesOfProcess();
+  cluster.createCheckpointByProcess(1, 150)
+  cluster.createMessage(0, 1);
+  cluster.createMessage(3, 0);
 }
 
 
