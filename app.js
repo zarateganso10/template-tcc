@@ -1,114 +1,69 @@
 // const canvas = d3.select(".canvas");
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-
+const canvasTimeline = document.getElementById("timeline");
+const canvasCluster = document.getElementById("cluster");
 const sizeWidth = innerWidth - 100;
 
-canvas.width  = innerWidth;
-canvas.height = innerHeight;
+canvasTimeline.width  = innerWidth;
+canvasTimeline.height = innerHeight;
+
+// canvasCluster.width  = innerWidth;
+// canvasCluster.height = 300;
+
+// const ctxCluster = canvasCluster.getContext("2d")
+const ctxTimeline = canvasTimeline.getContext("2d");
+
+
 
 const INIT_LINE_X = 100;
 
-// const line1 = 50;
-// const diferenceBetweenLines = 50;
-// const checkpointSize = 20;
-// const diference = checkpointSize/2;
-
-
-// ctx.beginPath();
-// ctx.rect(20, 40, 50, 50);
-// ctx.fillStyle = "#FF0000";
-// ctx.fill();
-// ctx.closePath();
-
-// ctx.beginPath();
-// ctx.arc(240, 160, 20, 0, Math.PI*2, false);
-// ctx.fillStyle = "green";
-// ctx.fill();
-// ctx.closePath();
-
-// ctx.beginPath();
-// ctx.rect(160, 10, 100, 40);
-// ctx.strokeStyle = "rgba(0, 0, 255, 0.5)";
-// ctx.stroke();
-// ctx.closePath();
-
-// var x = canvas.width/2;
-// var y = canvas.height-30;
-// var dx = 2;
-
-
-
-
-
-
-
-// function createCheckpoint(x, y) {
-//   ctx.beginPath();
-//   ctx.rect(x, y, 20, 20);
-//   ctx.fillStyle = "#FF0000";
-//   ctx.fill();
-//   ctx.closePath();
-// }
-
-function createActionLine(x) {
-  ctx.beginPath();
-  ctx.moveTo(100, 150);
-  ctx.lineTo(x, 150);
-  ctx.strokeStyle = '#00c800';
-  ctx.stroke();
-}
-
-function initTemplate() {
-  createLines(4)
-}
-
-// function main() {
-//   clean()
-//   initTemplate();
-//   const actionLinesArray = [100, 100, 100, 100];
-//   setInterval({ draw(ac) }, 1000);
-// }
-
-var x = 100;
-
-
-
-function drawActionLines() {
-  if(x <= sizeWidth){
-    createActionLine(x);
-    x = x + 50;
-  }
-}
-
-function draw() {
-  drawActionLines();
-  createCheckpoint(x, 90)
-}
+const PROCESS_COLORS = [
+  "#151EF4",
+  "#F415DE",
+  "#15F42C",
+  "#F0F415",
+]
 
 function clean() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctxTimeline.clearRect(0, 0, canvasTimeline.width, canvasTimeline.height);
 }
 
 class Cluster {
   constructor(processNumber = 4, distanceBetweenLines = 50) {
     this.processNumber = processNumber;
     this.distanceBetweenLines = distanceBetweenLines;
-    this.checkpoints = [];
-    this.checkpointForces = [];
-    this.colorCheckpoint = "#FF0000"
     this.yAxisProcess = [];
-    this.checkpointSize = 20;
+    this.checkpointSize = 10;
     this.checkpointList = [];
+    this.eventList = [];
+    this.messagesList = [];
+    const processTime = [];
+    for(let i = 0; i < processNumber; i++) {
+      const step = getRandomInteger(1,3);
+      processTime.push({ timeline: 100 + (i * 30), step: i === 1 ? .5 : .5 });
+    }
+
+    this.processTime = processTime;
+  }
+
+  getNumberProcess() {
+    return this.processNumber;
   }
 
   createLine(processNumber, distanceLine) {
-    ctx.fillText(`P${processNumber}`, 50, 100 + distanceLine);
-    ctx.beginPath();
-    ctx.moveTo(INIT_LINE_X, 100 + distanceLine);
-    ctx.lineTo(sizeWidth, 100 + distanceLine);
-    ctx.stroke();
+    ctxTimeline.fillText(`P${processNumber}`, 50, 100 + distanceLine);
   }
+
+  advanceTimeline() {
+    this.processTime = this.processTime.map(time => {
+      if(time.timeline + time.step < sizeWidth){
+        return {
+          ...time,
+          timeline: time.timeline + time.step,
+        }
+      }
+      return time
+    })
+  } 
 
   drawLinesOfProcess() {
     for (let i = 0; i < this.processNumber; i++) {
@@ -117,161 +72,251 @@ class Cluster {
     }
   }
 
-  createMessage(processSending, processReceive, delay = 50) {
-    ctx.beginPath();
-    ctx.moveTo(100, this.yAxisProcess[processSending]);
-    ctx.lineTo(150, this.yAxisProcess[processReceive]);
-    ctx.stroke();
+  draw() {
+    // DRAW PROCESS TIMELINE
+    for (let i = 0; i < this.processNumber; i++) {
+      ctxTimeline.beginPath();
+      ctxTimeline.moveTo(INIT_LINE_X, 100 + (i * this.distanceBetweenLines));
+      ctxTimeline.lineTo(this.processTime[i].timeline, 100 + (i * this.distanceBetweenLines));
+      ctxTimeline.strokeStyle = PROCESS_COLORS[i];
+      ctxTimeline.stroke();
+      ctxTimeline.closePath();
+    }
 
-    if(processSending > processReceive) {
-      ctx.beginPath();
-      ctx.moveTo(150,100);
-      ctx.lineTo(150,100 + 10);
-      ctx.fillStyle = "#000";
-      ctx.lineTo(150 - 10, 100  + 2);
-      ctx.fill();
+    // DRAW MESSAGES
+    for (let i = 0; i < this.messagesList.length; i++) {
+      const message = this.messagesList[i];
+      const step = this.processTime[message.processReceive]?.step;
+      if (message.drawing) {
+        ctxTimeline.beginPath();
+        ctxTimeline.moveTo(message.moveTo.x, message.moveTo.y);
+        ctxTimeline.lineTo(message.lineTo.x + message.velocity.x, message.lineTo.y - message.velocity.y);
+        ctxTimeline.strokeStyle = message.color;
+        ctxTimeline.stroke();
+        ctxTimeline.closePath();
+        if(message.processSending > message.processReceive) {
+          ctxTimeline.beginPath();
+          ctxTimeline.moveTo(message.lineTo.x - 10, message.lineTo.y + 2);
+          ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
+          ctxTimeline.lineTo(message.lineTo.x - 2, message.lineTo.y + 10);
+          ctxTimeline.fillStyle = message.color;
+          ctxTimeline.fill();
+          ctxTimeline.closePath();
+          if(message.lineTo.y - step > this.yAxisProcess[message.processReceive]) {
+            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y - message.velocity.y }
+          }
+        } else {
+          ctxTimeline.beginPath();
+          ctxTimeline.moveTo(message.lineTo.x - 10, message.lineTo.y - 2);
+          ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
+          ctxTimeline.lineTo(message.lineTo.x - 2, message.lineTo.y - 10);
+          ctxTimeline.fillStyle = message.color;
+          ctxTimeline.fill();
+          ctxTimeline.closePath();
+          if(message.lineTo.y + step < this.yAxisProcess[message.processReceive]) {
+            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y + message.velocity.y }
+          }
+        }
+        
+      }
+    }
+
+    // DRAW CHECKPOINTS
+    for (let i = 0; i < this.checkpointList.length; i++) {
+      const checkpoint = this.checkpointList[i];
+      ctxTimeline.beginPath();
+      ctxTimeline.rect(checkpoint.position.x, checkpoint.position.y - this.checkpointSize/2, this.checkpointSize, this.checkpointSize);
+      ctxTimeline.fillStyle = checkpoint.color;
+      ctxTimeline.fill();
+      ctxTimeline.closePath();
+    }
+
+    // DRAW EVENTS
+    for (let i = 0; i < this.eventList.length; i++) {
+      const event = this.eventList[i]
+      ctxTimeline.beginPath();
+      ctxTimeline.arc(event.position.x, event.position.y , 5, 0, 360, false);
+      ctxTimeline.fillStyle = event.color;
+      ctxTimeline.fill();
+      ctxTimeline.closePath();
+    }
+
+    // DRAW Clusters
+    this.drawClusters()
+  }
+
+  drawClusters() {
+    const image = document.getElementById('source');
+    ctxTimeline.fillText(`P0`, 100, 300);
+    ctxTimeline.drawImage( image, 100, 300, 70, 70);
+    // P0 to P2
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(150, 330);
+    ctxTimeline.lineTo(320, 330);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(150, 343);
+    ctxTimeline.lineTo(320, 343);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    // P0 to P1
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(140, 368);
+    ctxTimeline.lineTo(220, 460);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(122, 368);
+    ctxTimeline.lineTo(220, 477);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    ctxTimeline.fillText(`P1`, 220, 445);
+    // P1 to P2
+    ctxTimeline.drawImage( image, 200, 450, 70, 70);
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(250, 450);
+    ctxTimeline.lineTo(320, 368);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    ctxTimeline.beginPath();
+    ctxTimeline.moveTo(250, 470);
+    ctxTimeline.lineTo(352, 348);
+    ctxTimeline.strokeStyle = "#000";
+    ctxTimeline.stroke();
+    ctxTimeline.closePath();
+    ctxTimeline.fillText(`P2`, 300, 300);
+    ctxTimeline.drawImage( image, 300, 300, 70, 70);
+  }
+
+  createMessage(processSending, processReceive, color = "#000", inclinado = false) {
+    let distanceBetweenProcess = null;
+    if(this.processTime[processSending].timeline > this.processTime[processReceive].timeline) {
+      distanceBetweenProcess = this.processTime[processSending].timeline - this.processTime[processReceive].timeline;
     } else {
-      ctx.beginPath();
-      ctx.moveTo(150,150);
-      ctx.lineTo(150,150 - 10);
-      ctx.fillStyle = "#000";
-      ctx.lineTo(150 - 10, 150 - 2);
-      ctx.fill();
+      distanceBetweenProcess = this.processTime[processSending].timeline - this.processTime[processReceive].timeline;
+    }
+    this.messagesList.push({
+      moveTo: {
+        x: this.processTime[processSending].timeline,
+        y: this.yAxisProcess[processSending],
+      },
+      lineTo: {
+        x: this.processTime[processSending].timeline,
+        y: this.yAxisProcess[processSending]
+      },
+      velocity: {
+        x: this.processTime[processReceive].step/2,
+        y: inclinado ? this.processTime[processReceive].step  : this.processTime[processReceive].step/2,
+      },
+      markerMessage: false,
+      processReceive: processReceive,
+      processSending: processSending,
+      color,
+      drawing: true,
+    })
+  }
+
+  createCheckpoint(process, color = "#000") {
+    this.checkpointList.push({
+      color: color,
+      position: {
+        x: this.processTime[process].timeline,
+        y: this.yAxisProcess[process]
+      }
+    })    
+  }
+
+  createCheckpointByProcess(process, color) {
+    const yAxis = this.yAxisProcess[process];
+    this.checkpointList.push({ xAxis: this.step, yAxis: yAxis})
+    this.createCheckpoint(yAxis, color);
+  }
+
+  createEvent(process, color = "#000") {
+    const yAxis = this.yAxisProcess[process];
+    const timeline = this.processTime[process].timeline;
+    this.eventList.push({
+      color: color,
+      position: {
+        x: timeline,
+        y: yAxis
+      }
+    })
+  }
+}
+
+function getRandomInteger(min, max) {
+  return Math.floor(Math.random() * (max - min) ) + min;
+}
+
+function randomMessage(cluster) {
+  const numberProcess = cluster.getNumberProcess();
+  const processToSendMessage = getRandomInteger(0, numberProcess);
+  let processToReceiveMessage = -1;
+  while(true) {
+    processToReceiveMessage = getRandomInteger(0, numberProcess);
+    if(processToReceiveMessage !== processToSendMessage){
+      break;
     }
   }
-
-  createCheckpoint(xAxis, yAxis) {
-    const relativeYAxis = yAxis - (this.checkpointSize/2);
-    ctx.beginPath();
-    ctx.rect(xAxis, relativeYAxis, this.checkpointSize, this.checkpointSize);
-    ctx.fillStyle = this.colorCheckpoint;
-    ctx.fill();
-    ctx.closePath();
-  }
-
-  createCheckpointByProcess(process, timeline) {
-    const yAxis = this.yAxisProcess[process];
-    this.checkpointList.push({ xAxis: timeline, yAxis: yAxis})
-    this.createCheckpoint(timeline, yAxis);
-  }
+  cluster.createMessage(processToSendMessage, processToReceiveMessage, step, 50);
 }
 
-function main() {
-  // clean()
-  // initTemplate();
-  // const actionLinesArray = [100, 100, 100, 100];
-  // setInterval({ draw(ac) }, 1000);
-  const cluster = new Cluster(4);
+function draw(cluster, i) {
+  // if(i === 0) {
+  //   cluster.createCheckpointByProcess(0, "#000");
+  //   cluster.createCheckpointByProcess(1, "#000");
+  //   cluster.createCheckpointByProcess(2, "#000");
+  //   cluster.advanceTimeline(50);
+  // }
+  // if(i === 0) { cluster.createMessage( 0, 1, 50); }
+  // if(i === 2) { cluster.createMessage( 2, 0, 100); cluster.advanceTimeline(60); }
+  // if(i === 3) { cluster.createMessage( 1, 2, 50); cluster.advanceTimeline(50); }
+  // if(i === 4) { cluster.createMessage( 1, 2, 50); cluster.advanceTimeline(50); }
+  // if(i === 5) { cluster.createCheckpointByProcess(0, "#FF0000"); cluster.advanceTimeline(10); }
+  // if(i === 6) { cluster.createMessage( 0, 1, 20, "#151EF4"); cluster.createMessage( 0, 2, 150, "#151EF4"); cluster.advanceTimeline(50); }
+}
+
+// function main() {
+  
+//   const cluster = new Cluster(3);
+//   cluster.drawLinesOfProcess();
+//   let i = 0
+
+//   setInterval(() => {
+//     draw(cluster, i)
+//     i++;
+//   }, 1000)
+// }
+
+// main();
+const cluster = new Cluster(3);
+
+var iterator = 0
+const STEP_ITERATOR = 60
+  
+window.requestAnimationFrame(function loop() {
+  clean();
   cluster.drawLinesOfProcess();
-  cluster.createCheckpointByProcess(1, 150)
-  cluster.createMessage(0, 1);
-  cluster.createMessage(3, 0);
-}
-
-
-
-main();
-
-
-// class Line {
-//   constructor(x, y) {
-//     this.x = x
-//     this.y = y
-//   }
-
-//   draw() {
-//     ctx.beginPath();
-//     ctx.moveTo(100, 0);
-//     ctx.lineTo(100, 150);
-//     ctx.stroke();
-//   }
-// }
-
-// const line = new Line(20,20)
-// line.draw()
-
-// function drawBall() {
-//     ctx.beginPath();
-//     ctx.arc(x, y, 10, 0, Math.PI*2);
-//     ctx.fillStyle = "#0095DD";
-//     ctx.fill();
-//     ctx.closePath();
-// }
-
-// function draw() {
-//     ctx.canvas.width  = window.innerWidth;
-//     ctx.canvas.height = window.innerHeight;
-//     ctx.clearRect(0, 0, canvas.width, canvas.height);
-//     drawBall();
-//     x += dx;
-// }
-
-// setInterval(draw, 10);
-
-// const svg = canvas.append("svg");
-
-// function initTemplate(numberLines) {
-//   for(let i = 0; i < numberLines; i++){
-//     svg.append("text").attr("x", "0")
-//       .attr("y", line1 + ( i * diferenceBetweenLines ))
-//       .text(`P${i}`);
-
-//     svg.append("line").attr("x1", "40")
-//       .attr("x2", "100%")
-//       .attr("y1", line1 + ( i * diferenceBetweenLines ))
-//       .attr("y2", line1 + ( i * diferenceBetweenLines ))
-//       .attr("stroke", "black"); 
-//   }
-// }
-
-// function createMessagePtoP(processSend, processReceive, init){
-//   const final = init + 50;
-//   svg.append("line").attr("x1", init)
-//   .attr("x2", final)
-//   .attr("y1", line1 + (processSend * diferenceBetweenLines))
-//   .attr("y2", line1 + (processReceive * diferenceBetweenLines))
-//   .attr("stroke", "black");
-// }
-
-
-// function createMessagePtoP(processSend, processReceive, init){
-//   const final = init + 50;
-//   svg.append("line").attr("x1", init)
-//   .attr("x2", final)
-//   .attr("y1", line1 + (processSend * diferenceBetweenLines))
-//   .attr("y2", line1 + (processReceive * diferenceBetweenLines))
-//   .attr("stroke", "black");
-// }
-
-// function main(){
-//   const numberLines = 8
-//   svg.attr("width", "100%").attr("height", `${line1 + ( diferenceBetweenLines * numberLines)}`);
-//   initTemplate(numberLines)
-//   let message = 100
-//   // while(true){
-//   //   message += 100;
-//   //   window.setTimeout(function(){  }, 3000);
-//   //   createMessagePtoP(1,0, message);
-//   // }
-
-//   createMessagePtoP(0,7, 400);
-//   // createMessageP3toP2(600)
-//   // createMessageP2toP1(400)
-//   // createCheckpointP1(500)
-//   // createCheckpointP2(600)
-//   // createCheckpointP3(900)
-// }
-
-// main()
-
-
-
-
-
-
-
-
-
-
-
-
+  cluster.advanceTimeline();
+  cluster.draw();
+  if (iterator === 1) cluster.createMessage(0, 1);
+  if (iterator === STEP_ITERATOR) cluster.createMessage(1,0);
+  if (iterator === STEP_ITERATOR * 2) cluster.createEvent(0);
+  if (iterator === STEP_ITERATOR * 4) cluster.createMessage(0,2);
+  if (iterator === STEP_ITERATOR * 6) cluster.createMessage(2, 1);
+  if (iterator === STEP_ITERATOR * 7) cluster.createCheckpoint(0, PROCESS_COLORS[0]);
+  if (iterator === STEP_ITERATOR * 7.4) {
+    cluster.createMessage(0, 1, PROCESS_COLORS[0]);
+    cluster.createMessage(0, 2, PROCESS_COLORS[0], true);
+  }
+  
+  iterator += 1;
+  window.requestAnimationFrame(loop);
+})
