@@ -28,7 +28,7 @@ function clean() {
 }
 
 class Cluster {
-  constructor(processNumber = 4, distanceBetweenLines = 50) {
+  constructor(processNumber = 4, distanceBetweenLines = 70  ) {
     this.processNumber = processNumber;
     this.distanceBetweenLines = distanceBetweenLines;
     this.yAxisProcess = [];
@@ -36,10 +36,11 @@ class Cluster {
     this.checkpointList = [];
     this.eventList = [];
     this.messagesList = [];
+    this.velocityX = .5;
     const processTime = [];
     for(let i = 0; i < processNumber; i++) {
       const step = getRandomInteger(1,3);
-      processTime.push({ timeline: 100 + (i * 30), step: i === 1 ? .5 : .5 });
+      processTime.push({ timeline: 100, step: this.velocityX });
     }
 
     this.processTime = processTime;
@@ -63,13 +64,6 @@ class Cluster {
       }
       return time
     })
-  } 
-
-  drawLinesOfProcess() {
-    for (let i = 0; i < this.processNumber; i++) {
-      this.createLine(i, i * this.distanceBetweenLines);
-      this.yAxisProcess.push(100 + (i * this.distanceBetweenLines));
-    }
   }
 
   draw() {
@@ -82,19 +76,34 @@ class Cluster {
       ctxTimeline.stroke();
       ctxTimeline.closePath();
     }
+    this.drawMessages();
+    this.drawCheckpoints();
+    this.drawEvents();
+    this.drawClusters()
+  }
 
-    // DRAW MESSAGES
+  drawLinesOfProcess() {
+    for (let i = 0; i < this.processNumber; i++) {
+      this.createLine(i, i * this.distanceBetweenLines);
+      this.yAxisProcess.push(100 + (i * this.distanceBetweenLines));
+    }
+  }
+
+  drawMessages() {
     for (let i = 0; i < this.messagesList.length; i++) {
       const message = this.messagesList[i];
       const step = this.processTime[message.processReceive]?.step;
       if (message.drawing) {
-        ctxTimeline.beginPath();
-        ctxTimeline.moveTo(message.moveTo.x, message.moveTo.y);
-        ctxTimeline.lineTo(message.lineTo.x + message.velocity.x, message.lineTo.y - message.velocity.y);
-        ctxTimeline.strokeStyle = message.color;
-        ctxTimeline.stroke();
-        ctxTimeline.closePath();
         if(message.processSending > message.processReceive) {
+          if(message.lineTo.y - step > this.yAxisProcess[message.processReceive]) {
+            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y - message.velocity.y }
+          }
+          ctxTimeline.beginPath();
+          ctxTimeline.moveTo(message.moveTo.x, message.moveTo.y);
+          ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
+          ctxTimeline.strokeStyle = message.color;
+          ctxTimeline.stroke();
+          ctxTimeline.closePath();
           ctxTimeline.beginPath();
           ctxTimeline.moveTo(message.lineTo.x - 10, message.lineTo.y + 2);
           ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
@@ -102,10 +111,16 @@ class Cluster {
           ctxTimeline.fillStyle = message.color;
           ctxTimeline.fill();
           ctxTimeline.closePath();
-          if(message.lineTo.y - step > this.yAxisProcess[message.processReceive]) {
-            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y - message.velocity.y }
-          }
         } else {
+          if(message.lineTo.y + step < this.yAxisProcess[message.processReceive]) {
+            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y + message.velocity.y }
+          }
+          ctxTimeline.beginPath();
+          ctxTimeline.moveTo(message.moveTo.x, message.moveTo.y);
+          ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
+          ctxTimeline.strokeStyle = message.color;
+          ctxTimeline.stroke();
+          ctxTimeline.closePath();
           ctxTimeline.beginPath();
           ctxTimeline.moveTo(message.lineTo.x - 10, message.lineTo.y - 2);
           ctxTimeline.lineTo(message.lineTo.x, message.lineTo.y);
@@ -113,15 +128,12 @@ class Cluster {
           ctxTimeline.fillStyle = message.color;
           ctxTimeline.fill();
           ctxTimeline.closePath();
-          if(message.lineTo.y + step < this.yAxisProcess[message.processReceive]) {
-            this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y + message.velocity.y }
-          }
         }
-        
       }
     }
+  }
 
-    // DRAW CHECKPOINTS
+  drawCheckpoints() {
     for (let i = 0; i < this.checkpointList.length; i++) {
       const checkpoint = this.checkpointList[i];
       ctxTimeline.beginPath();
@@ -130,8 +142,9 @@ class Cluster {
       ctxTimeline.fill();
       ctxTimeline.closePath();
     }
+  }
 
-    // DRAW EVENTS
+  drawEvents() {
     for (let i = 0; i < this.eventList.length; i++) {
       const event = this.eventList[i]
       ctxTimeline.beginPath();
@@ -140,9 +153,6 @@ class Cluster {
       ctxTimeline.fill();
       ctxTimeline.closePath();
     }
-
-    // DRAW Clusters
-    this.drawClusters()
   }
 
   drawClusters() {
@@ -194,12 +204,29 @@ class Cluster {
     ctxTimeline.drawImage( image, 300, 300, 70, 70);
   }
 
-  createMessage(processSending, processReceive, color = "#000", inclinado = false) {
+  createMessage(processSending, processReceive, delay = 50, color = "#000") {
     let distanceBetweenProcess = null;
+    const velocity = {
+      x: 0.5,
+      y: 0.5,
+    };
     if(this.processTime[processSending].timeline > this.processTime[processReceive].timeline) {
       distanceBetweenProcess = this.processTime[processSending].timeline - this.processTime[processReceive].timeline;
+      const blau = processSending - processReceive;
+      const distanceX = delay + distanceBetweenProcess;
+      const distanceY = Math.sqrt((delay*delay) + (blau*this.distanceBetweenLines*blau*this.distanceBetweenLines)).toFixed(2);
+      const timeX = distanceX/this.velocityX
+      velocity.x = (delay/timeX); 
+      velocity.y = (this.distanceBetweenLines/timeX);
     } else {
-      distanceBetweenProcess = this.processTime[processSending].timeline - this.processTime[processReceive].timeline;
+      distanceBetweenProcess = this.processTime[processReceive].timeline - this.processTime[processSending].timeline;
+      const blau = Math.abs(processSending - processReceive);
+      const distanceX = delay + distanceBetweenProcess;
+      const distanceY = Math.sqrt((distanceX*distanceX) + (blau*this.distanceBetweenLines*blau*this.distanceBetweenLines)).toFixed(2);
+      const timeX = delay/this.velocityX
+      console.log(distanceY)
+      velocity.x = (distanceX/timeX);
+      velocity.y = (blau*this.distanceBetweenLines/timeX);
     }
     this.messagesList.push({
       moveTo: {
@@ -211,8 +238,8 @@ class Cluster {
         y: this.yAxisProcess[processSending]
       },
       velocity: {
-        x: this.processTime[processReceive].step/2,
-        y: inclinado ? this.processTime[processReceive].step  : this.processTime[processReceive].step/2,
+        x: velocity.x,
+        y: velocity.y,
       },
       markerMessage: false,
       processReceive: processReceive,
@@ -309,13 +336,24 @@ window.requestAnimationFrame(function loop() {
   if (iterator === 1) cluster.createMessage(0, 1);
   if (iterator === STEP_ITERATOR) cluster.createMessage(1,0);
   if (iterator === STEP_ITERATOR * 2) cluster.createEvent(0);
-  if (iterator === STEP_ITERATOR * 4) cluster.createMessage(0,2);
-  if (iterator === STEP_ITERATOR * 6) cluster.createMessage(2, 1);
+  if (iterator === STEP_ITERATOR * 4) cluster.createMessage(0,2, 100);
+  if (iterator === STEP_ITERATOR * 6.5) cluster.createMessage(2, 1);
   if (iterator === STEP_ITERATOR * 7) cluster.createCheckpoint(0, PROCESS_COLORS[0]);
   if (iterator === STEP_ITERATOR * 7.4) {
-    cluster.createMessage(0, 1, PROCESS_COLORS[0]);
-    cluster.createMessage(0, 2, PROCESS_COLORS[0], true);
+    cluster.createMessage(0, 1, 50,PROCESS_COLORS[0]);
+    cluster.createMessage(0, 2, 200, PROCESS_COLORS[0]);
   }
+  if (iterator === STEP_ITERATOR * 7.8) cluster.createCheckpoint(1, PROCESS_COLORS[1]);
+  if (iterator === STEP_ITERATOR * 8.1) {
+    cluster.createMessage(1, 0, 50,PROCESS_COLORS[1]);
+    cluster.createMessage(1, 2, 60, PROCESS_COLORS[1]);
+  }
+  if (iterator === STEP_ITERATOR * 10.8) cluster.createCheckpoint(2, PROCESS_COLORS[2]);
+  if (iterator === STEP_ITERATOR * 11.2) {
+    cluster.createMessage(2, 1, 50,PROCESS_COLORS[2]);
+    cluster.createMessage(2, 0, 200, PROCESS_COLORS[2]);
+  }
+
   
   iterator += 1;
   window.requestAnimationFrame(loop);
