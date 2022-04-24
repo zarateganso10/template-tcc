@@ -11,14 +11,21 @@
 </head>
 
 <body>
-  <div id="container-animation">
+  <div style="margin-bottom: 70px" id="container-animation">
     <canvas id="timeline"></canvas>
     <canvas id="cluster"></canvas>
-    <div style="display:none;">
+    <!-- <div style="display:none;">
       <img id="source" src="cluster.png" width="50" height="70" />
-    </div>
+    </div> -->
   </div>
-  
+  <button onclick="player('play');"> Play </button>
+  <button onclick="player('pause');"> Pausar </button>
+  <button onclick="player('reset');"> Reset </button>
+  <button onclick="player('return');"> Return </button>
+  <button onclick="player('advance');"> Avançar </button>
+
+
+
 </body>
 <script src="app.js"></script>
 

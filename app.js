@@ -1,10 +1,15 @@
 // const canvas = d3.select(".canvas");
 const canvasTimeline = document.getElementById("timeline");
 const canvasCluster = document.getElementById("cluster");
+const buttonPlay = document.getElementById("play");
+const buttonPause = document.getElementById("pause");
+const buttonReset = document.getElementById("reset");
+const buttonReturn = document.getElementById("return");
+const buttonAdvance = document.getElementById("advance");
 const sizeWidth = innerWidth - 100;
 
 canvasTimeline.width  = innerWidth;
-canvasTimeline.height = innerHeight;
+canvasTimeline.height = 300;
 
 // canvasCluster.width  = innerWidth;
 // canvasCluster.height = 300;
@@ -12,7 +17,9 @@ canvasTimeline.height = innerHeight;
 // const ctxCluster = canvasCluster.getContext("2d")
 const ctxTimeline = canvasTimeline.getContext("2d");
 
-
+function player(action) {
+  console.log(action)
+}
 
 const INIT_LINE_X = 100;
 
@@ -79,7 +86,7 @@ class Cluster {
     this.drawMessages();
     this.drawCheckpoints();
     this.drawEvents();
-    this.drawClusters()
+    // this.drawClusters()
   }
 
   drawLinesOfProcess() {
@@ -224,7 +231,6 @@ class Cluster {
       const distanceX = delay + distanceBetweenProcess;
       const distanceY = Math.sqrt((distanceX*distanceX) + (blau*this.distanceBetweenLines*blau*this.distanceBetweenLines)).toFixed(2);
       const timeX = delay/this.velocityX
-      console.log(distanceY)
       velocity.x = (distanceX/timeX);
       velocity.y = (blau*this.distanceBetweenLines/timeX);
     }
@@ -327,14 +333,28 @@ const cluster = new Cluster(3);
 
 var iterator = 0
 const STEP_ITERATOR = 60
+var STEP = 0;
+
+function main() {
+  setInterval(() => {
+    
+  }, [])
+}
+
+main()
   
 window.requestAnimationFrame(function loop() {
   clean();
   cluster.drawLinesOfProcess();
   cluster.advanceTimeline();
   cluster.draw();
-  if (iterator === 1) cluster.createMessage(0, 1);
-  if (iterator === STEP_ITERATOR) cluster.createMessage(1,0);
+  if (iterator === STEP_ITERATOR * 0) {
+    cluster.createCheckpoint(0);
+    cluster.createCheckpoint(1);
+    cluster.createCheckpoint(2);
+  };
+  if (iterator === STEP_ITERATOR * 1) cluster.createMessage(0, 1);
+  if (iterator === STEP_ITERATOR * 1.5) cluster.createMessage(1,0);
   if (iterator === STEP_ITERATOR * 2) cluster.createEvent(0);
   if (iterator === STEP_ITERATOR * 4) cluster.createMessage(0,2, 100);
   if (iterator === STEP_ITERATOR * 6.5) cluster.createMessage(2, 1);
