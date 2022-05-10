@@ -1,41 +1,15 @@
-// const canvas = d3.select(".canvas");
-const canvasTimeline = document.getElementById("timeline");
-const canvasCluster = document.getElementById("cluster");
-const buttonPlay = document.getElementById("play");
-const buttonPause = document.getElementById("pause");
-const buttonReset = document.getElementById("reset");
-const buttonReturn = document.getElementById("return");
-const buttonAdvance = document.getElementById("advance");
+const canvas = document.getElementById("timeline")
+const canvasChannels = document.getElementById("channels");
+const ctxChannels = canvasChannels.getContext("2d");
+const ctxTimeline = canvas.getContext("2d");
 const sizeWidth = innerWidth - 100;
-
-canvasTimeline.width  = innerWidth;
-canvasTimeline.height = 300;
-
-// canvasCluster.width  = innerWidth;
-// canvasCluster.height = 300;
-
-// const ctxCluster = canvasCluster.getContext("2d")
-const ctxTimeline = canvasTimeline.getContext("2d");
-
-function player(action) {
-  console.log(action)
-}
+ctxTimeline.width  = 600;
+ctxTimeline.height = 300;
 
 const INIT_LINE_X = 100;
-
-const PROCESS_COLORS = [
-  "#151EF4",
-  "#F415DE",
-  "#15F42C",
-  "#F0F415",
-]
-
-function clean() {
-  ctxTimeline.clearRect(0, 0, canvasTimeline.width, canvasTimeline.height);
-}
-
+const INIT_Y = 50;
 class Cluster {
-  constructor(processNumber = 4, distanceBetweenLines = 70  ) {
+  constructor(processNumber = 4, distanceBetweenLines = 50  ) {
     this.processNumber = processNumber;
     this.distanceBetweenLines = distanceBetweenLines;
     this.yAxisProcess = [];
@@ -46,7 +20,6 @@ class Cluster {
     this.velocityX = .5;
     const processTime = [];
     for(let i = 0; i < processNumber; i++) {
-      const step = getRandomInteger(1,3);
       processTime.push({ timeline: 100, step: this.velocityX });
     }
 
@@ -58,7 +31,7 @@ class Cluster {
   }
 
   createLine(processNumber, distanceLine) {
-    ctxTimeline.fillText(`P${processNumber}`, 50, 100 + distanceLine);
+    ctxTimeline.fillText(`P${processNumber + 1}`, 50, 50 + distanceLine);
   }
 
   advanceTimeline() {
@@ -73,17 +46,45 @@ class Cluster {
     })
   }
 
-  draw() {
+  setTimeLine(timeline) {
+    this.processTime = this.processTime.map(time => {
+      if(time.timeline + time.step < sizeWidth){
+        return {
+          ...time,
+          timeline,
+        }
+      }
+      return time
+    })
+  }
+
+  removeLastMessage() {
+    this.messagesList.pop();
+  }
+
+  removeLastCheckpoint() {
+    this.checkpointList.pop();
+  }
+  
+  removeLastEvent() {
+    this.eventList.pop();
+  }
+
+  getTimeline() {
+    return this.processTime[0].timeline;
+  }
+
+  draw(actions) {
     // DRAW PROCESS TIMELINE
     for (let i = 0; i < this.processNumber; i++) {
       ctxTimeline.beginPath();
-      ctxTimeline.moveTo(INIT_LINE_X, 100 + (i * this.distanceBetweenLines));
-      ctxTimeline.lineTo(this.processTime[i].timeline, 100 + (i * this.distanceBetweenLines));
+      ctxTimeline.moveTo(INIT_LINE_X, INIT_Y + (i * this.distanceBetweenLines));
+      ctxTimeline.lineTo(this.processTime[i].timeline, INIT_Y + (i * this.distanceBetweenLines));
       ctxTimeline.strokeStyle = PROCESS_COLORS[i];
       ctxTimeline.stroke();
       ctxTimeline.closePath();
     }
-    this.drawMessages();
+    this.drawMessages(actions);
     this.drawCheckpoints();
     this.drawEvents();
     // this.drawClusters()
@@ -92,17 +93,20 @@ class Cluster {
   drawLinesOfProcess() {
     for (let i = 0; i < this.processNumber; i++) {
       this.createLine(i, i * this.distanceBetweenLines);
-      this.yAxisProcess.push(100 + (i * this.distanceBetweenLines));
+      this.yAxisProcess.push(INIT_Y + (i * this.distanceBetweenLines));
     }
   }
-
-  drawMessages() {
+  // asdasds
+  drawMessages(actions) {
     for (let i = 0; i < this.messagesList.length; i++) {
       const message = this.messagesList[i];
       const step = this.processTime[message.processReceive]?.step;
+      const timeline = this.processTime[0].timeline;
       if (message.drawing) {
         if(message.processSending > message.processReceive) {
-          if(message.lineTo.y - step > this.yAxisProcess[message.processReceive]) {
+          if (timeline > message.moveTo.x + message.delay) {
+            this.messagesList[i].lineTo = { x: message.moveTo.x + message.delay, y: this.yAxisProcess[message.processReceive] }
+          }else if(message.lineTo.y - step > this.yAxisProcess[message.processReceive] && action === 'play') {
             this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y - message.velocity.y }
           }
           ctxTimeline.beginPath();
@@ -119,7 +123,9 @@ class Cluster {
           ctxTimeline.fill();
           ctxTimeline.closePath();
         } else {
-          if(message.lineTo.y + step < this.yAxisProcess[message.processReceive]) {
+          if (timeline > message.moveTo.x + message.delay) {
+            this.messagesList[i].lineTo = { x: message.moveTo.x + message.delay, y: this.yAxisProcess[message.processReceive] }
+          } else if (message.lineTo.y + step < this.yAxisProcess[message.processReceive] && action === 'play') {
             this.messagesList[i].lineTo = { x: message.lineTo.x + message.velocity.x, y: message.lineTo.y + message.velocity.y }
           }
           ctxTimeline.beginPath();
@@ -162,55 +168,6 @@ class Cluster {
     }
   }
 
-  drawClusters() {
-    const image = document.getElementById('source');
-    ctxTimeline.fillText(`P0`, 100, 300);
-    ctxTimeline.drawImage( image, 100, 300, 70, 70);
-    // P0 to P2
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(150, 330);
-    ctxTimeline.lineTo(320, 330);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(150, 343);
-    ctxTimeline.lineTo(320, 343);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    // P0 to P1
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(140, 368);
-    ctxTimeline.lineTo(220, 460);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(122, 368);
-    ctxTimeline.lineTo(220, 477);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    ctxTimeline.fillText(`P1`, 220, 445);
-    // P1 to P2
-    ctxTimeline.drawImage( image, 200, 450, 70, 70);
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(250, 450);
-    ctxTimeline.lineTo(320, 368);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    ctxTimeline.beginPath();
-    ctxTimeline.moveTo(250, 470);
-    ctxTimeline.lineTo(352, 348);
-    ctxTimeline.strokeStyle = "#000";
-    ctxTimeline.stroke();
-    ctxTimeline.closePath();
-    ctxTimeline.fillText(`P2`, 300, 300);
-    ctxTimeline.drawImage( image, 300, 300, 70, 70);
-  }
-
   createMessage(processSending, processReceive, delay = 50, color = "#000") {
     let distanceBetweenProcess = null;
     const velocity = {
@@ -228,13 +185,14 @@ class Cluster {
     } else {
       distanceBetweenProcess = this.processTime[processReceive].timeline - this.processTime[processSending].timeline;
       const blau = Math.abs(processSending - processReceive);
-      const distanceX = delay + distanceBetweenProcess;
-      const distanceY = Math.sqrt((distanceX*distanceX) + (blau*this.distanceBetweenLines*blau*this.distanceBetweenLines)).toFixed(2);
+      const distanceX = delay;
+      // const distanceY = Math.sqrt((distanceX*distanceX) + (blau*this.distanceBetweenLines*blau*this.distanceBetweenLines)).toFixed(2);
       const timeX = delay/this.velocityX
-      velocity.x = (distanceX/timeX);
+      velocity.x = this.velocityX;
       velocity.y = (blau*this.distanceBetweenLines/timeX);
     }
     this.messagesList.push({
+      delay: delay,
       moveTo: {
         x: this.processTime[processSending].timeline,
         y: this.yAxisProcess[processSending],
@@ -256,13 +214,16 @@ class Cluster {
   }
 
   createCheckpoint(process, color = "#000") {
-    this.checkpointList.push({
+    const checkpoint = {
+      type: "checkpoint",
       color: color,
       position: {
         x: this.processTime[process].timeline,
         y: this.yAxisProcess[process]
       }
-    })    
+    }
+    this.checkpointList.push(checkpoint)
+    return checkpoint;
   }
 
   createCheckpointByProcess(process, color) {
@@ -284,97 +245,290 @@ class Cluster {
   }
 }
 
-function getRandomInteger(min, max) {
-  return Math.floor(Math.random() * (max - min) ) + min;
-}
-
-function randomMessage(cluster) {
-  const numberProcess = cluster.getNumberProcess();
-  const processToSendMessage = getRandomInteger(0, numberProcess);
-  let processToReceiveMessage = -1;
-  while(true) {
-    processToReceiveMessage = getRandomInteger(0, numberProcess);
-    if(processToReceiveMessage !== processToSendMessage){
-      break;
+class Channels {
+  constructor(processNumber = 4) {
+    this.processNumber = processNumber;
+    this.channels = [];
+    for(let i = 0; i < processNumber; i++) {
+      let processReceivers;
+      for(let j = 0; j < processNumber; j++) {
+        processReceivers.push({});
+      }
     }
   }
-  cluster.createMessage(processToSendMessage, processToReceiveMessage, step, 50);
+
+  draw() {
+    this.drawChannels();
+  }
+
+  drawChannel(processNumber, distanceX) {
+    let distanceY = 50
+    for(let i = 0; i < this.processNumber; i++) {
+      if(processNumber !== i){
+        ctxChannels.beginPath();
+        ctxChannels.font = "16px Arial";
+        ctxChannels.fillText(`C${processNumber + 1}->${i}`, distanceX, distanceY);
+        ctxChannels.closePath();
+        distanceY += 20
+      }
+    }
+  }
+
+  drawChannels() {
+    let distanceX = 50;
+    for(let i = 0; i < this.processNumber; i++) {
+      this.drawChannel(i, distanceX);
+      distanceX += 100;
+    }
+  }
 }
 
-function draw(cluster, i) {
-  // if(i === 0) {
-  //   cluster.createCheckpointByProcess(0, "#000");
-  //   cluster.createCheckpointByProcess(1, "#000");
-  //   cluster.createCheckpointByProcess(2, "#000");
-  //   cluster.advanceTimeline(50);
-  // }
-  // if(i === 0) { cluster.createMessage( 0, 1, 50); }
-  // if(i === 2) { cluster.createMessage( 2, 0, 100); cluster.advanceTimeline(60); }
-  // if(i === 3) { cluster.createMessage( 1, 2, 50); cluster.advanceTimeline(50); }
-  // if(i === 4) { cluster.createMessage( 1, 2, 50); cluster.advanceTimeline(50); }
-  // if(i === 5) { cluster.createCheckpointByProcess(0, "#FF0000"); cluster.advanceTimeline(10); }
-  // if(i === 6) { cluster.createMessage( 0, 1, 20, "#151EF4"); cluster.createMessage( 0, 2, 150, "#151EF4"); cluster.advanceTimeline(50); }
+
+function clean() {
+  ctxTimeline.clearRect(0, 0, ctxTimeline.width, ctxTimeline.height);
 }
 
-// function main() {
-  
-//   const cluster = new Cluster(3);
-//   cluster.drawLinesOfProcess();
-//   let i = 0
+var action = '';
+var cluster = new Cluster(3);
+var channels = new Channels(3);
 
-//   setInterval(() => {
-//     draw(cluster, i)
-//     i++;
-//   }, 1000)
-// }
-
-// main();
-const cluster = new Cluster(3);
+const PROCESS_COLORS = [
+  "#151EF4",
+  "#F415DE",
+  "#15F42C",
+  "#F0F415",
+]
 
 var iterator = 0
 const STEP_ITERATOR = 60
-var STEP = 0;
+const STEPS = [
+  {
+    draw: false,
+    timeline: 100,
+    checkpoints: [
+      { process: 0 },
+      { process: 1 },
+      { process: 2 },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 120,
+    messages: [
+      { 
+        processSending: 0,
+        processReceiving: 1
+      }
+    ]
+  },
+  {
+    draw: false,
+    timeline: 150,
+    messages: [
+      { 
+        processSending: 2,
+        processReceiving: 1
+      }
+    ]
+  },
+  {
+    draw: false,
+    timeline: 180,
+    events: [
+      {process: 1}
+    ]
+  },
+  {
+    draw: false,
+    timeline: 200,
+    messages: [
+      { 
+        processSending: 0,
+        processReceiving: 2,
+        delay: 70
+      }
+    ]
+  },
+  {
+    draw: false,
+    timeline: 220,
+    events: [
+      {process: 0}
+    ]
+  },
+  {
+    draw: false,
+    timeline: 200,
+    messages: [
+      { 
+        processSending: 0,
+        processReceiving: 2,
+        delay: 70,
+      }
+    ]
+  },
+  {
+    draw: false,
+    timeline: 250,
+    checkpoints: [
+      { process: 0, color: PROCESS_COLORS[0] },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 260,
+    messages: [
+      { 
+        processSending: 0,
+        processReceiving: 1,
+        delay: 20,
+        color: PROCESS_COLORS[0]
+      },
+      { 
+        processSending: 0,
+        processReceiving: 2,
+        delay: 150,
+        color: PROCESS_COLORS[0]
+      },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 315,
+    checkpoints: [
+      { process: 1, color: PROCESS_COLORS[1] },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 340,
+    messages: [
+      { 
+        processSending: 2,
+        processReceiving: 1,
+        delay: 60,
+      }
+    ]
+  },
+  {
+    draw: false,
+    timeline: 325,
+    messages: [
+      { 
+        processSending: 1,
+        processReceiving: 0,
+        delay: 60,
+        color: PROCESS_COLORS[1]
+      },
+      { 
+        processSending: 1,
+        processReceiving: 2,
+        delay: 60,
+        color: PROCESS_COLORS[1]
+      },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 390,
+    checkpoints: [
+      { process: 2, color: PROCESS_COLORS[2] },
+    ]
+  },
+  {
+    draw: false,
+    timeline: 400,
+    messages: [
+      { 
+        processSending: 2,
+        processReceiving: 1,
+        delay: 20,
+        color: PROCESS_COLORS[2]
+      },
+      { 
+        processSending: 2,
+        processReceiving: 0,
+        delay: 130,
+        color: PROCESS_COLORS[2]
+      },
+    ]
+  },
+];
 
-function main() {
-  setInterval(() => {
-    
-  }, [])
+function player(actions) {
+  action = actions;
 }
 
-main()
+function drawStep(step) {
+  step.checkpoints?.forEach(checkpoint => {
+    cluster.createCheckpoint(checkpoint.process, checkpoint.color);
+  })
+  step.messages?.forEach(message => {
+    cluster.createMessage(message.processSending, message.processReceiving, message.delay | 50, message.color);
+  })
+  step.events?.forEach(event => {
+    cluster.createEvent(event.process);
+  })
+}
+
+function returnStep(step) {
+  step.checkpoints && step.checkpoints?.forEach(checkpoint => {
+    cluster.removeLastCheckpoint();
+  })
+  step.messages && step.messages?.forEach(message => {
+    cluster.removeLastMessage();
+  })
+  step.events && step.events?.forEach(event => {
+    cluster.removeLastEvent();
+  })
+  cluster.setTimeLine(step.timeline);
+}
+
+
   
 window.requestAnimationFrame(function loop() {
   clean();
+  channels.draw()
   cluster.drawLinesOfProcess();
-  cluster.advanceTimeline();
-  cluster.draw();
-  if (iterator === STEP_ITERATOR * 0) {
-    cluster.createCheckpoint(0);
-    cluster.createCheckpoint(1);
-    cluster.createCheckpoint(2);
-  };
-  if (iterator === STEP_ITERATOR * 1) cluster.createMessage(0, 1);
-  if (iterator === STEP_ITERATOR * 1.5) cluster.createMessage(1,0);
-  if (iterator === STEP_ITERATOR * 2) cluster.createEvent(0);
-  if (iterator === STEP_ITERATOR * 4) cluster.createMessage(0,2, 100);
-  if (iterator === STEP_ITERATOR * 6.5) cluster.createMessage(2, 1);
-  if (iterator === STEP_ITERATOR * 7) cluster.createCheckpoint(0, PROCESS_COLORS[0]);
-  if (iterator === STEP_ITERATOR * 7.4) {
-    cluster.createMessage(0, 1, 50,PROCESS_COLORS[0]);
-    cluster.createMessage(0, 2, 200, PROCESS_COLORS[0]);
+  cluster.draw(action);
+  if (action === 'return') {
+    let lastIndex = -1;
+    for (let i = 0; i < STEPS.length; i ++) {
+      if(STEPS[i].draw === false) break;
+      lastIndex = i;
+    }
+    if(lastIndex > -1) {
+      returnStep(STEPS[lastIndex])
+      STEPS[lastIndex].draw = false;
+    }
+    action = 'pause'
   }
-  if (iterator === STEP_ITERATOR * 7.8) cluster.createCheckpoint(1, PROCESS_COLORS[1]);
-  if (iterator === STEP_ITERATOR * 8.1) {
-    cluster.createMessage(1, 0, 50,PROCESS_COLORS[1]);
-    cluster.createMessage(1, 2, 60, PROCESS_COLORS[1]);
+  if(action === 'advance') {
+    let lastIndex = -1;
+    for (let i = 0; i < STEPS.length; i ++) {
+      if(STEPS[i].draw === false) {
+        lastIndex = i;
+        break;
+      }
+    }
+    if(lastIndex > -1) {
+      cluster.setTimeLine(STEPS[lastIndex].timeline)
+      drawStep(STEPS[lastIndex])
+      STEPS[lastIndex].draw = true;
+    }
+    action = 'pause'
   }
-  if (iterator === STEP_ITERATOR * 10.8) cluster.createCheckpoint(2, PROCESS_COLORS[2]);
-  if (iterator === STEP_ITERATOR * 11.2) {
-    cluster.createMessage(2, 1, 50,PROCESS_COLORS[2]);
-    cluster.createMessage(2, 0, 200, PROCESS_COLORS[2]);
-  }
-
-  
-  iterator += 1;
+  if (action === 'play') {
+    const timeline = cluster.getTimeline()
+    for(let i = 0; i < STEPS.length; i++) {
+      const step = STEPS[i];
+      if(step.draw) continue;
+      if(step.timeline <= timeline) {
+        drawStep(step);
+        STEPS[i].draw = true;
+      }
+    }
+    cluster.advanceTimeline();
+  } 
   window.requestAnimationFrame(loop);
 })
